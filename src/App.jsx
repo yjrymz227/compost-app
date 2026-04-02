@@ -1,5 +1,18 @@
 import { useState, useEffect } from "react";
-import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
+import { initializeApp } from "firebase/app";
+import { getFirestore, doc, setDoc, onSnapshot } from "firebase/firestore";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCXw-32c6j3kclBLubaqsTE4DJgtPPAYlo",
+  authDomain: "compost-app-7ed4d.firebaseapp.com",
+  projectId: "compost-app-7ed4d",
+  storageBucket: "compost-app-7ed4d.firebasestorage.app",
+  messagingSenderId: "724477643042",
+  appId: "1:724477643042:web:7a847d604842966e97fd7b"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
 const TURNING_SCHEDULE = [
   { label: "1回目", daysFromPrev: 7,  note: "加水の判断" },
