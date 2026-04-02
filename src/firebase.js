@@ -1,6 +1,3 @@
-import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
-
 const firebaseConfig = {
   apiKey: "AIzaSyCXw-32c6j3kclBLubaqsTE4DJgtPPAYlo",
   authDomain: "compost-app-7ed4d.firebaseapp.com",
