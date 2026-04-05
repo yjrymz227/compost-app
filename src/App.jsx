@@ -214,6 +214,8 @@ export default function App() {
   const [recordWater, setRecordWater] = useState(null);
   const [recordNote, setRecordNote] = useState("");
   const [editingStartDate, setEditingStartDate] = useState(null);
+  const [showDetailScheduleEditor, setShowDetailScheduleEditor] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState(null);
 
   useEffect(() => {
     if (!userName) return;
@@ -246,6 +248,14 @@ export default function App() {
       b.id===batchId ? {...b, startDate:newDate, startDateEditedBy:userName, startDateEditedAt:new Date().toISOString()} : b
     ));
     setEditingStartDate(null);
+  }
+
+  async function updateBatchSchedule(batchId, newSchedule) {
+    await saveData(batches.map(b =>
+      b.id===batchId ? {...b, customSchedule:newSchedule} : b
+    ));
+    setShowDetailScheduleEditor(false);
+    setEditingSchedule(null);
   }
 
   async function addBatch() {
@@ -786,8 +796,34 @@ export default function App() {
               {/* 切り返しスケジュール */}
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
                 <div style={{ fontSize:14, fontWeight:700, color:"#374151" }}>切り返しスケジュール</div>
-                <div style={{ fontSize:11, color:"#94a3b8" }}>実施日から次回を自動計算</div>
+                {!selectedBatch.done&&(
+                  <button onClick={()=>{
+                    setShowDetailScheduleEditor(!showDetailScheduleEditor);
+                    setEditingSchedule(sched.map(s=>({...s})));
+                  }}
+                    style={{ padding:"5px 12px", borderRadius:8, border:"1.5px solid #d1fae5", background:showDetailScheduleEditor?"#dcfce7":"white", color:showDetailScheduleEditor?"#15803d":"#6b7280", fontSize:12, cursor:"pointer", fontFamily:"inherit", fontWeight:showDetailScheduleEditor?700:400 }}>
+                    {showDetailScheduleEditor?"▲ 閉じる":"✏️ 間隔を編集"}
+                  </button>
+                )}
               </div>
+
+              {/* 間隔編集UI */}
+              {showDetailScheduleEditor&&editingSchedule&&!selectedBatch.done&&(
+                <div style={{ background:"white", borderRadius:12, padding:16, marginBottom:12, border:"1.5px solid #d1fae5" }}>
+                  <ScheduleEditor schedule={editingSchedule} onChange={setEditingSchedule}/>
+                  <div style={{ display:"flex", gap:8, marginTop:12 }}>
+                    <button onClick={()=>{setShowDetailScheduleEditor(false);setEditingSchedule(null);}}
+                      style={{ flex:1, padding:"10px 0", borderRadius:10, border:"1.5px solid #d1fae5", background:"white", color:"#6b7280", fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
+                      キャンセル
+                    </button>
+                    <button onClick={()=>updateBatchSchedule(selectedBatch.id, editingSchedule)} disabled={saving}
+                      style={{ flex:2, padding:"10px 0", borderRadius:10, border:"none", background:"linear-gradient(135deg,#15803d,#16a34a)", color:"white", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+                      {saving?"保存中…":"保存して予定を再計算"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div style={{ fontSize:12, color:"#6b7280", marginBottom:10 }}>未実施をタップ → 実施記録 ／ 実施済をタップ → 取り消し</div>
 
               {turnings.map((t,i)=>{
