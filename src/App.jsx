@@ -161,13 +161,26 @@ function ScheduleEditor({ schedule, onChange }) {
           <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 12px", background:"#f8fafc", borderRadius:8 }}>
             <span style={{ fontSize:12, fontWeight:700, color:"#374151", minWidth:50 }}>{t.label}</span>
             <input
-              type="number" min="1" max="90" value={t.daysFromPrev}
+              type="number" min="1" max="90"
+              defaultValue={t.daysFromPrev}
+              key={t.label}
               onFocus={e => e.target.select()}
               onChange={e => {
+                const val = e.target.value;
+                if (val === "" || val === "0") return;
                 const newSchedule = schedule.map((s, j) =>
-                  j === i ? { ...s, daysFromPrev: Number(e.target.value) || 1 } : s
+                  j === i ? { ...s, daysFromPrev: Number(val) } : s
                 );
                 onChange(newSchedule);
+              }}
+              onBlur={e => {
+                if (!e.target.value || Number(e.target.value) < 1) {
+                  e.target.value = 1;
+                  const newSchedule = schedule.map((s, j) =>
+                    j === i ? { ...s, daysFromPrev: 1 } : s
+                  );
+                  onChange(newSchedule);
+                }
               }}
               style={{ width:60, padding:"4px 8px", borderRadius:6, border:"1.5px solid #d1fae5",
                 fontSize:14, fontFamily:"inherit", textAlign:"center", outline:"none" }}
