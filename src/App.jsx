@@ -16,7 +16,7 @@ const db = getFirestore(app);
 
 // デフォルトの切り返し間隔
 const DEFAULT_SCHEDULE = [
- { label: "1回目",  daysFromPrev: 7,  note: "加水の判断" },
+  { label: "1回目",  daysFromPrev: 7,  note: "加水の判断" },
   { label: "2回目",  daysFromPrev: 7,  note: "加水の判断" },
   { label: "3回目",  daysFromPrev: 14, note: "加水の判断" },
   { label: "4回目",  daysFromPrev: 14, note: "加水の判断" },
@@ -44,15 +44,14 @@ function getSchedule(batch) {
   return DEFAULT_SCHEDULE;
 }
 
-function calcTurnings(startDate, actualDates = {}, schedule = DEFAULT_SCHEDULE, customDates = {}) {
+// ★ シンプル化：customDates を廃止し、前回実施日 or 前回予定日 + 間隔だけで計算
+function calcTurnings(startDate, actualDates = {}, schedule = DEFAULT_SCHEDULE) {
   const turnings = [];
   let prevDate = new Date(startDate);
   for (let i = 0; i < schedule.length; i++) {
     const t = schedule[i];
     const actual = actualDates[i];
-    // カスタム予定日があればそちらを使う
-    const customDate = customDates[i] ? new Date(customDates[i]) : null;
-    const scheduled = customDate || new Date(prevDate.getTime() + t.daysFromPrev * 86400000);
+    const scheduled = new Date(prevDate.getTime() + t.daysFromPrev * 86400000);
     const baseDate  = actual ? new Date(actual) : scheduled;
     turnings.push({
       ...t, index: i,
@@ -215,7 +214,6 @@ export default function App() {
   const [recordWater, setRecordWater] = useState(null);
   const [recordNote, setRecordNote] = useState("");
   const [editingStartDate, setEditingStartDate] = useState(null);
-  const [editingScheduledDate, setEditingScheduledDate] = useState(null); // {batchId, turnIndex}
 
   useEffect(() => {
     if (!userName) return;
@@ -250,24 +248,12 @@ export default function App() {
     setEditingStartDate(null);
   }
 
-  // 予定日を直接編集
-  async function updateScheduledDate(batchId, turnIndex, newDate) {
-    if (!newDate) return;
-    const newBatches = batches.map(b => {
-      if (b.id !== batchId) return b;
-      const customDates = { ...(b.customDates||{}), [turnIndex]: newDate };
-      return { ...b, customDates };
-    });
-    await saveData(newBatches);
-    setEditingScheduledDate(null);
-  }
-
   async function addBatch() {
     if (!form.lot || !form.startDate || !form.startYard) { alert("ロット番号・仕込み日・ヤードを入力してください"); return; }
     const nb = {
       ...form, id:Date.now(), done:false,
       actualDates:{}, actualNotes:{}, actualTemps:{}, actualWaters:{},
-      yardHistory:[], customDates:{},
+      yardHistory:{},
       currentYard:form.startYard, createdBy:userName, createdAt:new Date().toISOString()
     };
     await saveData([...batches, nb]);
@@ -285,13 +271,13 @@ export default function App() {
       const actualNotes  = { ...(b.actualNotes||{}) };
       const actualTemps  = { ...(b.actualTemps||{}) };
       const actualWaters = { ...(b.actualWaters||{}) };
-      const yardHistory  = [...(b.yardHistory||[])];
+      const yardHistory  = { ...(b.yardHistory||{}) };
       actualDates[turnIndex] = recordDate;
       if (recordNote)  actualNotes[turnIndex]  = recordNote;
       if (recordTemp)  actualTemps[turnIndex]  = recordTemp;
       if (recordWater !== null) actualWaters[turnIndex] = recordWater;
       const newYard = recordYard || b.currentYard;
-      yardHistory.push({ turnIndex, date:recordDate, fromYard:b.currentYard, toYard:newYard, by:userName });
+      yardHistory[turnIndex] = { date:recordDate, fromYard:b.currentYard, toYard:newYard, by:userName };
       return { ...b, actualDates, actualNotes, actualTemps, actualWaters, yardHistory, currentYard:newYard };
     });
     await saveData(newBatches);
@@ -306,11 +292,16 @@ export default function App() {
       const actualNotes  = { ...(b.actualNotes||{}) };
       const actualTemps  = { ...(b.actualTemps||{}) };
       const actualWaters = { ...(b.actualWaters||{}) };
-      const yardHistory  = (b.yardHistory||[]).filter(h => h.turnIndex !== turnIndex);
+      const yardHistory  = { ...(b.yardHistory||{}) };
       delete actualDates[turnIndex]; delete actualNotes[turnIndex];
       delete actualTemps[turnIndex]; delete actualWaters[turnIndex];
-      const lastH = [...yardHistory].reverse().find(h => h.turnIndex < turnIndex);
-      return { ...b, actualDates, actualNotes, actualTemps, actualWaters, yardHistory, currentYard:lastH?lastH.toYard:b.startYard };
+      delete yardHistory[turnIndex];
+      // 現在ヤードを直前の履歴に戻す
+      const prevEntry = Object.entries(yardHistory)
+        .filter(([k]) => Number(k) < turnIndex)
+        .sort((a,b) => Number(b[0])-Number(a[0]))[0];
+      return { ...b, actualDates, actualNotes, actualTemps, actualWaters, yardHistory,
+        currentYard: prevEntry ? prevEntry[1].toYard : b.startYard };
     });
     await saveData(newBatches);
   }
@@ -351,7 +342,7 @@ export default function App() {
   const selectedBatch = batches.find(b => b.id === selectedId);
   const allUpcoming = batches.filter(b=>!b.done).flatMap(b=>{
     const sched = getSchedule(b);
-    return calcTurnings(b.startDate, b.actualDates||{}, sched, b.customDates||{})
+    return calcTurnings(b.startDate, b.actualDates||{}, sched)
       .map((t,i)=>({...t, batchId:b.id, lot:b.lot, batchType:b.type, yard:b.currentYard}))
       .filter(t=>!t.done && getDiff(t.date)>=0);
   }).sort((a,b)=>a.date-b.date);
@@ -369,7 +360,7 @@ export default function App() {
       const sched = getSchedule(b);
       if (!events[b.startDate]) events[b.startDate]=[];
       events[b.startDate].push({ type:b.type, label:b.lot, batchId:b.id });
-      calcTurnings(b.startDate, b.actualDates||{}, sched, b.customDates||{}).forEach((t,i)=>{
+      calcTurnings(b.startDate, b.actualDates||{}, sched).forEach((t,i)=>{
         const key = toDateStr(t.date);
         if (!events[key]) events[key]=[];
         events[key].push({ type:b.type, label:`${b.lot} 切${i+1}${t.done?"✓":""}`, batchId:b.id });
@@ -461,7 +452,7 @@ export default function App() {
               const diff=Math.round((new Date(recordDate)-new Date(recordModal.scheduledDate))/86400000);
               return diff!==0?(
                 <div style={{ marginBottom:16, padding:"8px 12px", borderRadius:8, background:Math.abs(diff)>3?"#fff7ed":"#f0fdf4", border:`1px solid ${Math.abs(diff)>3?"#fb923c":"#86efac"}`, fontSize:12, color:Math.abs(diff)>3?"#9a3412":"#166534" }}>
-                  {diff>0?`⚠️ 予定より${diff}日遅れ`:`✨ 予定より${Math.abs(diff)}日早め`}実施。以降の予定日が再計算されます。
+                  {diff>0?`⚠️ 予定より${diff}日遅れ`:`✨ 予定より${Math.abs(diff)}日早め`}実施。以降の予定日が自動で再計算されます。
                 </div>
               ):(
                 <div style={{ marginBottom:16, padding:"8px 12px", borderRadius:8, background:"#f0fdf4", border:"1px solid #86efac", fontSize:12, color:"#166534" }}>✅ 予定通りの実施日です。</div>
@@ -510,7 +501,7 @@ export default function App() {
               </button>
               <button onClick={recordTurning} disabled={!recordDate||saving}
                 style={{ flex:2, padding:13, borderRadius:10, border:"none", background:recordDate?"linear-gradient(135deg,#15803d,#16a34a)":"#e2e8f0", color:recordDate?"white":"#94a3b8", fontSize:14, fontWeight:700, cursor:recordDate?"pointer":"default", fontFamily:"inherit" }}>
-                {saving?"保存中…":"記録して予定を更新"}
+                {saving?"保存中…":"記録して予定を自動更新"}
               </button>
             </div>
           </div>
@@ -586,7 +577,7 @@ export default function App() {
             )}
             {filtered.map(batch=>{
               const sched = getSchedule(batch);
-              const turnings=calcTurnings(batch.startDate, batch.actualDates||{}, sched, batch.customDates||{});
+              const turnings=calcTurnings(batch.startDate, batch.actualDates||{}, sched);
               const completedCount=turnings.filter(t=>t.done).length;
               const next=turnings.find(t=>!t.done&&getDiff(t.date)>=0);
               const tc=TYPE_COLOR[batch.type]||TYPE_COLOR["麦芽粕堆肥"];
@@ -599,7 +590,9 @@ export default function App() {
                         <span style={{ fontSize:22, fontWeight:800, color:tc.text }}>{batch.lot}</span>
                         <span style={{ background:tc.bg, color:tc.text, borderRadius:6, padding:"2px 8px", fontSize:11, fontWeight:700 }}>{tc.shortLabel}</span>
                         {batch.done&&<span style={{ background:"#15803d", color:"white", borderRadius:6, padding:"2px 8px", fontSize:11, fontWeight:700 }}>✅ 完了</span>}
-                        {batch.customSchedule&&<span style={{ background:"#f0f9ff", color:"#0369a1", borderRadius:6, padding:"2px 8px", fontSize:11, fontWeight:700 }}>📐 カスタム</span>}
+                        {batch.customSchedule&&JSON.stringify(batch.customSchedule.map(s=>s.daysFromPrev))!==JSON.stringify(DEFAULT_SCHEDULE.map(s=>s.daysFromPrev))&&(
+                          <span style={{ background:"#f0f9ff", color:"#0369a1", borderRadius:6, padding:"2px 8px", fontSize:11, fontWeight:700 }}>📐 カスタム</span>
+                        )}
                       </div>
                       <div style={{ fontSize:12, color:"#94a3b8", marginTop:4 }}>仕込み：{formatJP(new Date(batch.startDate))} by {batch.createdBy}</div>
                       {batch.done&&batch.doneAt&&<div style={{ fontSize:12, color:"#15803d", marginTop:2, fontWeight:600 }}>完了：{formatJP(new Date(batch.doneAt))} by {batch.doneBy}</div>}
@@ -712,7 +705,7 @@ export default function App() {
         {/* ── 詳細 ── */}
         {view==="detail"&&selectedBatch&&(()=>{
           const sched = getSchedule(selectedBatch);
-          const turnings=calcTurnings(selectedBatch.startDate, selectedBatch.actualDates||{}, sched, selectedBatch.customDates||{});
+          const turnings=calcTurnings(selectedBatch.startDate, selectedBatch.actualDates||{}, sched);
           const tc=TYPE_COLOR[selectedBatch.type]||TYPE_COLOR["麦芽粕堆肥"];
           return (
             <div>
@@ -771,17 +764,21 @@ export default function App() {
                 {selectedBatch.note&&<div style={{ marginTop:10, fontSize:12, color:"#94a3b8" }}>📝 {selectedBatch.note}</div>}
               </div>
 
-              {(selectedBatch.yardHistory||[]).length>0&&(
+              {/* ヤード移動履歴 */}
+              {Object.keys(selectedBatch.yardHistory||{}).length>0&&(
                 <div style={{ background:"white", borderRadius:12, padding:14, marginBottom:12, border:"1.5px solid #d1fae5" }}>
                   <div style={{ fontSize:13, fontWeight:700, color:"#374151", marginBottom:8 }}>📍 ヤード移動履歴</div>
                   <div style={{ display:"flex", alignItems:"center", flexWrap:"wrap", gap:4 }}>
                     <span style={{ fontSize:12, padding:"4px 10px", background:"#f8fafc", borderRadius:6, color:"#374151", fontWeight:600 }}>{selectedBatch.startYard}</span>
-                    {(selectedBatch.yardHistory||[]).map((h,i)=>(
-                      <div key={i} style={{ display:"flex", alignItems:"center" }}>
-                        <span style={{ fontSize:10, color:"#94a3b8", margin:"0 4px" }}>→ 切{h.turnIndex+1}</span>
-                        <span style={{ fontSize:12, padding:"4px 10px", background:tc.bg, borderRadius:6, color:tc.text, fontWeight:700 }}>{h.toYard}</span>
-                      </div>
-                    ))}
+                    {Object.entries(selectedBatch.yardHistory||{})
+                      .sort((a,b)=>Number(a[0])-Number(b[0]))
+                      .map(([idx,h])=>(
+                        <div key={idx} style={{ display:"flex", alignItems:"center" }}>
+                          <span style={{ fontSize:10, color:"#94a3b8", margin:"0 4px" }}>→ 切{Number(idx)+1}</span>
+                          <span style={{ fontSize:12, padding:"4px 10px", background:tc.bg, borderRadius:6, color:tc.text, fontWeight:700 }}>{h.toYard}</span>
+                        </div>
+                      ))
+                    }
                   </div>
                 </div>
               )}
@@ -789,6 +786,7 @@ export default function App() {
               {/* 切り返しスケジュール */}
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
                 <div style={{ fontSize:14, fontWeight:700, color:"#374151" }}>切り返しスケジュール</div>
+                <div style={{ fontSize:11, color:"#94a3b8" }}>実施日から次回を自動計算</div>
               </div>
               <div style={{ fontSize:12, color:"#6b7280", marginBottom:10 }}>未実施をタップ → 実施記録 ／ 実施済をタップ → 取り消し</div>
 
@@ -798,13 +796,11 @@ export default function App() {
                 const actualNote=(selectedBatch.actualNotes||{})[i];
                 const actualTemp=(selectedBatch.actualTemps||{})[i];
                 const actualWater=(selectedBatch.actualWaters||{})[i];
-                const yardEntry=(selectedBatch.yardHistory||[]).find(h=>h.turnIndex===i);
-                const isEditingDate = editingScheduledDate?.batchId===selectedBatch.id && editingScheduledDate?.turnIndex===i;
+                const yardEntry=(selectedBatch.yardHistory||{})[i];
                 return (
                   <div key={i} style={{ background:s.bg, border:`1.5px solid ${s.border}`, borderRadius:12, padding:"14px 16px", marginBottom:8 }}>
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", cursor:"pointer" }}
                       onClick={()=>{
-                        if(isEditingDate) return;
                         if(isDone){ undoTurning(selectedBatch.id,i); }
                         else { setRecordDate(toDateStr(t.scheduledDate)); setRecordYard(selectedBatch.currentYard||""); setRecordModal({ batchId:selectedBatch.id, turnIndex:i, scheduledDate:t.scheduledDate, lot:selectedBatch.lot, currentYard:selectedBatch.currentYard, label:t.label }); }
                       }}>
@@ -813,7 +809,6 @@ export default function App() {
                           <span style={{ fontWeight:700, fontSize:13, color:s.text }}>切り返し{t.label}</span>
                           {isDone&&<span style={{ background:"#15803d", color:"white", borderRadius:5, padding:"1px 7px", fontSize:11, fontWeight:700 }}>✓ 実施済</span>}
                           {!isDone&&sk==="today"&&<span style={{ background:"#f59e0b", color:"white", borderRadius:5, padding:"1px 7px", fontSize:11, fontWeight:700 }}>本日！</span>}
-                          {(selectedBatch.customDates||{})[i]&&<span style={{ background:"#f0f9ff", color:"#0369a1", borderRadius:5, padding:"1px 7px", fontSize:11, fontWeight:700 }}>📅 日程変更済</span>}
                         </div>
                         {t.note&&<div style={{ fontSize:11, color:s.text, opacity:0.8, marginTop:2 }}>💧 {t.note}</div>}
                         {isDone&&(actualTemp||(actualWater!==undefined&&actualWater!==null))&&(
@@ -833,28 +828,6 @@ export default function App() {
                         <div style={{ fontSize:10, color:isDone?"#94a3b8":"#15803d", marginTop:3, fontWeight:600 }}>{isDone?"タップで取消":"タップして記録"}</div>
                       </div>
                     </div>
-                    {/* 予定日変更ボタン（未実施のみ） */}
-                    {!isDone&&!selectedBatch.done&&(
-                      <div style={{ marginTop:8, borderTop:"1px solid rgba(0,0,0,0.06)", paddingTop:8 }}>
-                        {isEditingDate ? (
-                          <div onClick={e=>e.stopPropagation()} style={{ display:"flex", gap:8, alignItems:"center" }}>
-                            <input type="date" defaultValue={toDateStr(t.scheduledDate)}
-                              id={`scheduledDate_${i}`}
-                              style={{ flex:1, padding:"5px 8px", borderRadius:6, border:"1.5px solid #15803d", fontSize:13, fontFamily:"inherit", outline:"none" }}/>
-                            <button onClick={()=>{
-                              const val=document.getElementById(`scheduledDate_${i}`).value;
-                              if(val) updateScheduledDate(selectedBatch.id,i,val);
-                            }} style={{ padding:"5px 12px", borderRadius:6, border:"none", background:"#15803d", color:"white", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>保存</button>
-                            <button onClick={()=>setEditingScheduledDate(null)} style={{ padding:"5px 12px", borderRadius:6, border:"1px solid #d1fae5", background:"white", color:"#6b7280", fontSize:12, cursor:"pointer", fontFamily:"inherit" }}>キャンセル</button>
-                          </div>
-                        ) : (
-                          <button onClick={e=>{ e.stopPropagation(); setEditingScheduledDate({batchId:selectedBatch.id,turnIndex:i}); }}
-                            style={{ fontSize:11, color:"#6b7280", background:"transparent", border:"none", cursor:"pointer", fontFamily:"inherit", padding:0 }}>
-                            📅 予定日を変更する
-                          </button>
-                        )}
-                      </div>
-                    )}
                   </div>
                 );
               })}
