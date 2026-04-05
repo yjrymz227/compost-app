@@ -16,13 +16,16 @@ const db = getFirestore(app);
 
 // デフォルトの切り返し間隔
 const DEFAULT_SCHEDULE = [
-  { label: "1回目", daysFromPrev: 7,  note: "加水の判断" },
-  { label: "2回目", daysFromPrev: 7,  note: "加水の判断" },
-  { label: "3回目", daysFromPrev: 14, note: "加水の判断" },
-  { label: "4回目", daysFromPrev: 14, note: "加水の判断" },
-  { label: "5回目", daysFromPrev: 21, note: "" },
-  { label: "6回目", daysFromPrev: 21, note: "" },
-  { label: "7回目", daysFromPrev: 30, note: "" },
+ { label: "1回目",  daysFromPrev: 7,  note: "加水の判断" },
+  { label: "2回目",  daysFromPrev: 7,  note: "加水の判断" },
+  { label: "3回目",  daysFromPrev: 14, note: "加水の判断" },
+  { label: "4回目",  daysFromPrev: 14, note: "加水の判断" },
+  { label: "5回目",  daysFromPrev: 21, note: "" },
+  { label: "6回目",  daysFromPrev: 21, note: "" },
+  { label: "7回目",  daysFromPrev: 30, note: "" },
+  { label: "8回目",  daysFromPrev: 30, note: "" },
+  { label: "9回目",  daysFromPrev: 30, note: "" },
+  { label: "10回目", daysFromPrev: 30, note: "" },
 ];
 
 const YARD_OPTIONS = {
