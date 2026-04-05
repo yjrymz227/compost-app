@@ -162,6 +162,7 @@ function ScheduleEditor({ schedule, onChange }) {
             <span style={{ fontSize:12, fontWeight:700, color:"#374151", minWidth:50 }}>{t.label}</span>
             <input
               type="number" min="1" max="90" value={t.daysFromPrev}
+              onFocus={e => e.target.select()}
               onChange={e => {
                 const newSchedule = schedule.map((s, j) =>
                   j === i ? { ...s, daysFromPrev: Number(e.target.value) || 1 } : s
