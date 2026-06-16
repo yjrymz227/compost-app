@@ -208,6 +208,7 @@ export default function App() {
   const [view, setView] = useState("schedule");
   const [selectedId, setSelectedId] = useState(null);
   const [calMonth, setCalMonth] = useState(new Date());
+  const [expandedDate, setExpandedDate] = useState(null);
   const [filterType, setFilterType] = useState("すべて");
   const [filterStatus, setFilterStatus] = useState("進行中");
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -422,12 +423,17 @@ export default function App() {
             return (
               <div key={key} style={{ minHeight:64, background:isToday?"#dcfce7":"white", border:isToday?"2px solid #15803d":"1.5px solid #e2e8f0", borderRadius:8, padding:"4px 3px" }}>
                 <div style={{ fontSize:12, fontWeight:isToday?800:500, color:isToday?"#15803d":dow===0?"#ef4444":dow===6?"#3b82f6":"#374151", marginBottom:2 }}>{d}</div>
-                {evs.slice(0,3).map((ev,j)=>{
+                {(expandedDate===key ? evs : evs.slice(0,3)).map((ev,j)=>{
                   const tc=TYPE_COLOR[ev.type];
                   return <div key={j} onClick={()=>{setSelectedId(ev.batchId);setView("detail");}}
                     style={{ background:tc.bg, borderRadius:3, padding:"1px 4px", fontSize:9, fontWeight:700, color:tc.text, marginBottom:1, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis", cursor:"pointer" }}>{ev.label}</div>;
                 })}
-                {evs.length>3&&<div style={{ fontSize:9, color:"#94a3b8" }}>+{evs.length-3}</div>}
+                {evs.length>3&&(
+  <div onClick={e=>{e.stopPropagation();setExpandedDate(expandedDate===key?null:key);}}
+    style={{ fontSize:9, color:"#0369a1", fontWeight:700, cursor:"pointer" }}>
+    +{evs.length-3} もっと見る
+  </div>
+)}
               </div>
             );
           })}
