@@ -97,6 +97,7 @@ const TYPE_COLOR = {
 };
 const STATUS = {
   done:     { bg:"#f1f5f9", border:"#cbd5e1", text:"#64748b", tag:"#94a3b8" },
+  overdue:  { bg:"#fef2f2", border:"#fca5a5", text:"#991b1b", tag:"#ef4444" },
   today:    { bg:"#fffbeb", border:"#fbbf24", text:"#92400e", tag:"#f59e0b" },
   soon:     { bg:"#fff7ed", border:"#fb923c", text:"#9a3412", tag:"#fb923c" },
   upcoming: { bg:"#f0f9ff", border:"#7dd3fc", text:"#0c4a6e", tag:"#38bdf8" },
@@ -104,7 +105,7 @@ const STATUS = {
 };
 function getStatus(date) {
   const d = getDiff(date);
-  if (d < 0) return "done";
+  if (d < 0) return "overdue";
   if (d === 0) return "today";
   if (d <= 3)  return "soon";
   if (d <= 14) return "upcoming";
@@ -381,8 +382,15 @@ export default function App() {
       .map((t,i)=>({...t, batchId:b.id, lot:b.lot, batchType:b.type, yard:b.currentYard}))
       .filter(t=>!t.done && getDiff(t.date)>=0);
   }).sort((a,b)=>a.date-b.date);
-  const todayCount = allUpcoming.filter(t=>getDiff(t.date)===0).length;
-  const soonCount  = allUpcoming.filter(t=>getDiff(t.date)>0&&getDiff(t.date)<=7).length;
+  const allOverdue = batches.filter(b=>!b.done).flatMap(b=>{
+    const sched = getSchedule(b);
+    return calcTurnings(b.startDate, b.actualDates||{}, sched)
+      .map((t,i)=>({...t, batchId:b.id, lot:b.lot, batchType:b.type, yard:b.currentYard}))
+      .filter(t=>!t.done && getDiff(t.date)<0);
+  }).sort((a,b)=>a.date-b.date);
+  const todayCount   = allUpcoming.filter(t=>getDiff(t.date)===0).length;
+  const soonCount    = allUpcoming.filter(t=>getDiff(t.date)>0&&getDiff(t.date)<=7).length;
+  const overdueCount = allOverdue.length;
   const filtered   = batches.filter(b=>{
     const statusMatch = filterStatus==="進行中" ? !b.done : b.done;
     const typeMatch   = filterType==="すべて" || b.type===filterType;
@@ -450,7 +458,7 @@ export default function App() {
         </div>
         <div style={{ marginTop:24 }}>
           <div style={{ fontSize:14, fontWeight:700, color:"#374151", marginBottom:10 }}>📌 直近の予定</div>
-          {allUpcoming.slice(0,8).map((t,i)=>{
+          {[...allOverdue, ...allUpcoming].slice(0,8).map((t,i)=>{
             const diff=getDiff(t.date), s=STATUS[getStatus(t.date)], tc=TYPE_COLOR[t.batchType]||TYPE_COLOR["麦芽粕堆肥"];
             return (
               <div key={i} onClick={()=>{setSelectedId(t.batchId);setView("detail");}}
@@ -469,7 +477,7 @@ export default function App() {
               </div>
             );
           })}
-          {allUpcoming.length===0&&<div style={{ textAlign:"center", color:"#94a3b8", fontSize:13, padding:20 }}>予定はありません</div>}
+          {allOverdue.length===0&&allUpcoming.length===0&&<div style={{ textAlign:"center", color:"#94a3b8", fontSize:13, padding:20 }}>予定はありません</div>}
         </div>
       </div>
     );
@@ -566,8 +574,9 @@ export default function App() {
                 style={{ background:"rgba(255,255,255,0.2)", border:"none", borderRadius:8, color:"white", padding:"6px 10px", fontSize:11, cursor:"pointer", fontFamily:"inherit" }}>退出</button>
             </div>
           </div>
-          {(todayCount>0||soonCount>0)&&(
+          {(overdueCount>0||todayCount>0||soonCount>0)&&(
             <div style={{ marginTop:10, background:"rgba(255,255,255,0.15)", borderRadius:10, padding:"8px 14px", display:"flex", gap:16, flexWrap:"wrap" }}>
+              {overdueCount>0&&<span style={{ fontSize:13, cursor:"pointer" }} onClick={()=>setView("schedule")}>⚠️ やり忘れ：<strong>{overdueCount}件</strong></span>}
               {todayCount>0&&<span style={{ fontSize:13 }}>🔴 本日の切り返し：<strong>{todayCount}件</strong></span>}
               {soonCount>0&&<span style={{ fontSize:13 }}>🟡 7日以内：<strong>{soonCount}件</strong></span>}
             </div>
@@ -592,6 +601,34 @@ export default function App() {
         {/* ── 一覧 ── */}
         {view==="schedule"&&(
           <div>
+            {overdueCount>0&&(
+              <div style={{ background:"#fef2f2", border:"1.5px solid #fca5a5", borderRadius:14, padding:14, marginBottom:14 }}>
+                <div style={{ fontSize:14, fontWeight:800, color:"#991b1b", marginBottom:8 }}>⚠️ やり忘れ（{overdueCount}件）</div>
+                {allOverdue.map((t,i)=>{
+                  const diff=getDiff(t.date), tc=TYPE_COLOR[t.batchType]||TYPE_COLOR["麦芽粕堆肥"];
+                  return (
+                    <div key={i} onClick={()=>{
+                      setRecordDate(toDateStr(new Date()));
+                      setRecordYard(t.yard||"");
+                      setRecordModal({ batchId:t.batchId, turnIndex:t.index, scheduledDate:t.scheduledDate, lot:t.lot, currentYard:t.yard, label:t.label });
+                    }}
+                      style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"9px 12px", borderRadius:10, marginBottom:6, cursor:"pointer", background:"white", border:"1.5px solid #fecaca" }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                        <div style={{ width:8, height:8, background:tc.dot, borderRadius:"50%", flexShrink:0 }}/>
+                        <div>
+                          <div style={{ fontSize:13, fontWeight:700, color:"#991b1b" }}>{t.lot} — 切り返し{t.label}</div>
+                          <div style={{ fontSize:11, color:"#6b7280" }}>{t.yard}</div>
+                        </div>
+                      </div>
+                      <div style={{ textAlign:"right" }}>
+                        <div style={{ fontSize:12, fontWeight:700, color:"#991b1b" }}>{formatJP(t.date)}</div>
+                        <div style={{ fontSize:11, color:"#ef4444", fontWeight:700 }}>{Math.abs(diff)}日経過</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             <div style={{ display:"flex", background:"#e8f5e9", borderRadius:12, padding:4, marginBottom:14, gap:4 }}>
               {["進行中","完了"].map(s=>(
                 <button key={s} onClick={()=>setFilterStatus(s)}
@@ -619,7 +656,7 @@ export default function App() {
               const sched = getSchedule(batch);
               const turnings=calcTurnings(batch.startDate, batch.actualDates||{}, sched);
               const completedCount=turnings.filter(t=>t.done).length;
-              const undone=turnings.filter(t=>!t.done&&getDiff(t.date)>=0);
+              const undone=turnings.filter(t=>!t.done);
               const tc=TYPE_COLOR[batch.type]||TYPE_COLOR["麦芽粕堆肥"];
               return (
                 <div key={batch.id} onClick={()=>{setSelectedId(batch.id);setView("detail");}}
