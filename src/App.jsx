@@ -26,7 +26,7 @@ const DEFAULT_SCHEDULE = [
   { label: "8回目",  daysFromPrev: 30, note: "" },
   { label: "9回目",  daysFromPrev: 30, note: "" },
   { label: "10回目", daysFromPrev: 30, note: "" },
-　{ label: "11回目", daysFromPrev: 30, note: "" },
+  { label: "11回目", daysFromPrev: 30, note: "" },
   { label: "12回目", daysFromPrev: 30, note: "" },
   { label: "13回目", daysFromPrev: 30, note: "" },
   { label: "14回目", daysFromPrev: 30, note: "" },
@@ -620,7 +620,7 @@ export default function App() {
               const turnings=calcTurnings(batch.startDate, batch.actualDates||{}, sched);
               const completedCount=turnings.filter(t=>t.done).length;
               const next=turnings.find(t=>!t.done&&getDiff(t.date)>=0);
-            　const undone=turnings.filter(t=>!t.done&&getDiff(t.date)>=0);
+              const undone=turnings.filter(t=>!t.done&&getDiff(t.date)>=0);
               const tc=TYPE_COLOR[batch.type]||TYPE_COLOR["麦芽粕堆肥"];
               return (
                 <div key={batch.id} onClick={()=>{setSelectedId(batch.id);setView("detail");}}
@@ -666,20 +666,9 @@ export default function App() {
         </div>
       );
     })}
-    {undone.length>3&&<div style={{ fontSize:11, color:"#94a3b8", textAlign:"right" }}>他{undone.length-3}件</div>}
+  {undone.length>3&&<div style={{ fontSize:11, color:"#94a3b8", textAlign:"right" }}>他{undone.length-3}件</div>}
   </div>
 )}
-                    const diff=getDiff(next.date), s=STATUS[getStatus(next.date)];
-                    return (
-                      <div style={{ background:s.bg, border:`1.5px solid ${s.border}`, borderRadius:8, padding:"8px 12px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                        <div style={{ fontSize:12, fontWeight:700, color:s.text }}>次：切り返し{next.label}{next.note&&<span style={{ fontWeight:400, opacity:0.8 }}>（{next.note}）</span>}</div>
-                        <div style={{ textAlign:"right" }}>
-                          <div style={{ fontSize:12, fontWeight:700, color:s.text }}>{formatJP(next.date)}</div>
-                          <div style={{ fontSize:11, color:s.tag, fontWeight:700 }}>{diff===0?"本日！":diff===1?"明日":`${diff}日後`}</div>
-                        </div>
-                      </div>
-                    );
-                  })()}
                 </div>
               );
             })}
