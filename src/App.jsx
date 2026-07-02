@@ -26,7 +26,7 @@ const DEFAULT_SCHEDULE = [
   { label: "8回目",  daysFromPrev: 30, note: "" },
   { label: "9回目",  daysFromPrev: 30, note: "" },
   { label: "10回目", daysFromPrev: 30, note: "" },
-  { label: "11回目", daysFromPrev: 30, note: "" },
+　{ label: "11回目", daysFromPrev: 30, note: "" },
   { label: "12回目", daysFromPrev: 30, note: "" },
   { label: "13回目", daysFromPrev: 30, note: "" },
   { label: "14回目", daysFromPrev: 30, note: "" },
@@ -619,7 +619,6 @@ export default function App() {
               const sched = getSchedule(batch);
               const turnings=calcTurnings(batch.startDate, batch.actualDates||{}, sched);
               const completedCount=turnings.filter(t=>t.done).length;
-              const next=turnings.find(t=>!t.done&&getDiff(t.date)>=0);
               const undone=turnings.filter(t=>!t.done&&getDiff(t.date)>=0);
               const tc=TYPE_COLOR[batch.type]||TYPE_COLOR["麦芽粕堆肥"];
               return (
@@ -644,7 +643,7 @@ export default function App() {
                     </div>
                     <span style={{ color:"#cbd5e1", fontSize:20 }}>›</span>
                   </div>
-                  <div style={{ marginBottom:next&&!batch.done?10:0 }}>
+                  <div style={{ marginBottom:undone.length>0&&!batch.done?10:0 }}>
                     <div style={{ display:"flex", justifyContent:"space-between", fontSize:11, color:"#94a3b8", marginBottom:3 }}>
                       <span>切り返し進捗</span><span>{completedCount}/{turnings.length}</span>
                     </div>
@@ -653,22 +652,22 @@ export default function App() {
                     </div>
                   </div>
                   {undone.length>0&&!batch.done&&(
-  <div>
-    {undone.slice(0,3).map((t,i)=>{
-      const diff=getDiff(t.date), s=STATUS[getStatus(t.date)];
-      return (
-        <div key={i} style={{ background:s.bg, border:`1.5px solid ${s.border}`, borderRadius:8, padding:"6px 12px", display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
-          <div style={{ fontSize:12, fontWeight:700, color:s.text }}>切り返し{t.label}</div>
-          <div style={{ textAlign:"right" }}>
-            <div style={{ fontSize:12, fontWeight:700, color:s.text }}>{formatJP(t.date)}</div>
-            <div style={{ fontSize:11, color:s.tag, fontWeight:700 }}>{diff===0?"本日！":diff===1?"明日":`${diff}日後`}</div>
-          </div>
-        </div>
-      );
-    })}
-  {undone.length>3&&<div style={{ fontSize:11, color:"#94a3b8", textAlign:"right" }}>他{undone.length-3}件</div>}
-  </div>
-)}
+                    <div>
+                      {undone.slice(0,3).map((t,i)=>{
+                        const diff=getDiff(t.date), s=STATUS[getStatus(t.date)];
+                        return (
+                          <div key={i} style={{ background:s.bg, border:`1.5px solid ${s.border}`, borderRadius:8, padding:"6px 12px", display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
+                            <div style={{ fontSize:12, fontWeight:700, color:s.text }}>切り返し{t.label}</div>
+                            <div style={{ textAlign:"right" }}>
+                              <div style={{ fontSize:12, fontWeight:700, color:s.text }}>{formatJP(t.date)}</div>
+                              <div style={{ fontSize:11, color:s.tag, fontWeight:700 }}>{diff===0?"本日！":diff===1?"明日":`${diff}日後`}</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {undone.length>3&&<div style={{ fontSize:11, color:"#94a3b8", textAlign:"right" }}>他{undone.length-3}件</div>}
+                    </div>
+                  )}
                 </div>
               );
             })}
