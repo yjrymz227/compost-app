@@ -44,8 +44,8 @@ const YARD_OPTIONS = {
   "牛舎":   Array.from({length:9},  (_,i) => `牛舎${["①","②","③","④","⑤","⑥","⑦","⑧","⑨"][i]}`),
 };
 
-const LOT_PREFIXES = { "麦芽粕堆肥": "ミ", "草堆肥": "ヒ", "落葉堆肥": "フ", "魚粕堆肥": "魚" };
-const COMPOST_TYPES = ["麦芽粕堆肥", "草堆肥", "落葉堆肥", "魚粕堆肥"];
+const LOT_PREFIXES = { "麦芽粕堆肥": "ミ", "草堆肥": "ヒ", "落葉堆肥": "フ", "魚粕堆肥": "魚", "酒粕堆肥": "酒" };
+const COMPOST_TYPES = ["麦芽粕堆肥", "草堆肥", "落葉堆肥", "魚粕堆肥", "酒粕堆肥"];
 const LOT_NUMBERS  = Array.from({length:12}, (_,i) => String(i+1));
 
 // スケジュールを取得（カスタムがあればそちらを使う）
@@ -94,6 +94,7 @@ const TYPE_COLOR = {
   "草堆肥":     { bg:"#dcfce7", text:"#15803d", dot:"#16a34a", light:"#f0fdf4", border:"#bbf7d0", shortLabel:"🌿 草" },
   "落葉堆肥":   { bg:"#fce7d6", text:"#7c2d12", dot:"#ea580c", light:"#fff7ed", border:"#fed7aa", shortLabel:"🍂 落葉" },
   "魚粕堆肥":   { bg:"#e0e7ff", text:"#3730a3", dot:"#4f46e5", light:"#eef2ff", border:"#c7d2fe", shortLabel:"🐟 魚粕" },
+  "酒粕堆肥":   { bg:"#fce7f3", text:"#9d174d", dot:"#db2777", light:"#fdf2f8", border:"#fbcfe8", shortLabel:"🍶 酒粕" },
 };
 const STATUS = {
   done:     { bg:"#f1f5f9", border:"#cbd5e1", text:"#64748b", tag:"#94a3b8" },
